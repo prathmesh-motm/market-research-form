@@ -1,0 +1,591 @@
+// import { useState, useRef, useCallback } from 'react'
+// import './App.css'
+
+// const WEBHOOK_URL = 'https://n8n.b2botix.ai/webhook/ebd4c811-ef62-48fe-90b0-5d8bffe33e2b'
+// const MOTM_LOGO   = 'https://www.motm.tech/wp-content/uploads/2020/03/Final-MOTM-logo.png'
+
+// /* ── Suggestion pools ─────────────────────────────── */
+// const KEYWORD_POOL = [
+//   'Robot Manufacturers', 'Packaging Tools', 'CNC Machines', 'Industrial Automation',
+//   'Conveyor Systems', 'Welding Equipment', 'PLC Systems', 'Hydraulic Systems',
+//   'Pneumatic Components', 'Vision Systems', 'Sensors & Actuators', 'SCADA Software',
+// ]
+
+// const INDUSTRY_POOL = [
+//   'Automation', 'FMCG Manufacturer', 'Food Processing', 'Pharmaceutical',
+//   'Automotive', 'Aerospace', 'Chemical', 'Textile', 'Steel & Metal',
+//   'Plastic & Rubber', 'Electronics', 'Heavy Engineering', 'Defence',
+// ]
+
+// const SUB_INDUSTRY_POOL = [
+//   'PLC-SCADA', 'Process Automation', 'Factory Automation', 'Robotics Integration',
+//   'Machine Vision', 'Motion Control', 'Industrial IoT', 'Batch Processing',
+//   'Assembly Lines', 'Quality Control', 'Material Handling',
+// ]
+
+// const COMPANY_TYPE_POOL = [
+//   'Manufacturer', 'Distributor', 'Supplier', 'OEM', 'System Integrator',
+//   'Trading Company', 'EPC Contractor', 'Consultant', 'Service Provider',
+// ]
+
+// const LOCATION_POOL = [
+//   'Pune', 'Mumbai', 'Delhi', 'Bangalore', 'Hyderabad', 'Chennai',
+//   'Ahmedabad', 'Surat', 'Nashik', 'Nagpur', 'Coimbatore', 'Ludhiana',
+//   'Vadodara', 'Rajkot', 'Kolkata', 'Jaipur',
+// ]
+
+// const EXCLUSION_POOL = [
+//   'Dealers', 'Retailers', 'Importers', 'Exporters', 'Startups',
+//   'Freelancers', 'Consultants', 'Agencies',
+// ]
+
+// const EMP_RANGES  = ['1–10', '10–50', '50–200', '200–500', '500–1000', '1000+']
+// const REV_RANGES  = ['< 1 CR', '1–5 CR', '5–25 CR', '25–100 CR', '100 CR+']
+// const LOC_QUICK   = ['Pune', 'Mumbai', 'Delhi', 'Bangalore', 'Hyderabad']
+// const IND_QUICK   = ['Automation', 'FMCG', 'Automotive', 'Pharma', 'Food Processing']
+// const TYPE_QUICK  = ['Manufacturer', 'Distributor', 'Supplier', 'OEM']
+
+// /* ══════════════════════════════════════════════════
+//    Reusable tag-input (same pattern as LeadForm)
+// ══════════════════════════════════════════════════ */
+// function TagInput({ id, tags, setTags, pool, quickList, placeholder, disabled }) {
+//   const [draft, setDraft]       = useState('')
+//   const [showDrop, setShowDrop] = useState(false)
+//   const inputRef                = useRef(null)
+
+//   const suggestions = pool.filter(
+//     s => s.toLowerCase().includes(draft.toLowerCase()) &&
+//          draft.trim().length > 0 &&
+//          !tags.map(t => t.toLowerCase()).includes(s.toLowerCase())
+//   )
+
+//   const addTag = useCallback((raw) => {
+//     const vals = raw.split(',').map(v => v.trim()).filter(Boolean)
+//     setTags(prev => {
+//       const existing = prev.map(t => t.toLowerCase())
+//       return [...prev, ...vals.filter(v => !existing.includes(v.toLowerCase()))]
+//     })
+//     setDraft('')
+//     setShowDrop(false)
+//   }, [setTags])
+
+//   const removeTag = (i) => setTags(prev => prev.filter((_, idx) => idx !== i))
+
+//   const handleKey = (e) => {
+//     if ((e.key === ',' || e.key === 'Enter') && draft.trim()) {
+//       e.preventDefault(); addTag(draft)
+//     }
+//     if (e.key === 'Backspace' && !draft && tags.length) {
+//       setTags(prev => prev.slice(0, -1))
+//     }
+//   }
+
+//   const toggleQuick = (chip) => {
+//     const has = tags.map(t => t.toLowerCase()).includes(chip.toLowerCase())
+//     has ? setTags(prev => prev.filter(t => t.toLowerCase() !== chip.toLowerCase()))
+//         : setTags(prev => [...prev, chip])
+//   }
+
+//   return (
+//     <div className={`mrf-tagbox-wrap ${disabled ? 'mrf-disabled' : ''}`}>
+//       <div
+//         className={`mrf-tagbox ${tags.length ? 'filled' : ''}`}
+//         onClick={() => !disabled && inputRef.current?.focus()}
+//       >
+//         {tags.map((tag, i) => (
+//           <span className="mrf-tag" key={i}>
+//             {tag}
+//             <button type="button" className="mrf-tag-x"
+//               onClick={e => { e.stopPropagation(); removeTag(i) }}
+//               disabled={disabled}>×</button>
+//           </span>
+//         ))}
+//         <div className="mrf-tag-input-wrap">
+//           <input
+//             ref={inputRef} id={id} type="text"
+//             value={draft}
+//             onChange={e => { setDraft(e.target.value); setShowDrop(true) }}
+//             onKeyDown={handleKey}
+//             onFocus={() => setShowDrop(true)}
+//             onBlur={() => setTimeout(() => { if (draft.trim()) addTag(draft); setShowDrop(false) }, 160)}
+//             placeholder={tags.length ? '' : placeholder}
+//             className="mrf-tag-input" disabled={disabled} autoComplete="off"
+//           />
+//           {showDrop && suggestions.length > 0 && (
+//             <div className="mrf-suggestions">
+//               {suggestions.map(s => (
+//                 <div key={s} className="mrf-sug-item" onMouseDown={() => addTag(s)}>
+//                   {s}
+//                 </div>
+//               ))}
+//             </div>
+//           )}
+//         </div>
+//       </div>
+
+//       {tags.length > 0 && (
+//         <div className="mrf-tag-meta">
+//           <span>{tags.length} value{tags.length > 1 ? 's' : ''} added</span>
+//           <button type="button" className="mrf-clear-all" onClick={() => setTags([])}>Clear all</button>
+//         </div>
+//       )}
+
+//       {quickList && (
+//         <div className="mrf-chips">
+//           {quickList.map(chip => {
+//             const active = tags.map(t => t.toLowerCase()).includes(chip.toLowerCase())
+//             return (
+//               <button type="button" key={chip}
+//                 className={`mrf-chip ${active ? 'active' : ''}`}
+//                 onClick={() => toggleQuick(chip)} disabled={disabled}>
+//                 {active ? '✓ ' : '+ '}{chip}
+//               </button>
+//             )
+//           })}
+//         </div>
+//       )}
+//     </div>
+//   )
+// }
+
+// /* ══════════════════════════════════════════════════
+//    Section heading
+// ══════════════════════════════════════════════════ */
+// function SectionHead({ num, title, desc }) {
+//   return (
+//     <div className="mrf-section-head">
+//       <div className="mrf-section-num">{num}</div>
+//       <div>
+//         <div className="mrf-section-title">{title}</div>
+//         {desc && <div className="mrf-section-desc">{desc}</div>}
+//       </div>
+//     </div>
+//   )
+// }
+
+// /* ══════════════════════════════════════════════════
+//    Main Form
+// ══════════════════════════════════════════════════ */
+// export default function MarketResearchForm() {
+//   /* ── State ── */
+//   const [clientName,    setClientName]    = useState('')
+//   const [clientWebsite, setClientWebsite] = useState('')
+//   const [keywords,      setKeywords]      = useState([])
+//   const [industries,    setIndustries]    = useState([])
+//   const [subIndustry,   setSubIndustry]   = useState([])
+//   const [companyTypes,  setCompanyTypes]  = useState([])
+//   const [locations,     setLocations]     = useState([])
+//   const [empRange,      setEmpRange]      = useState('')
+//   const [revRange,      setRevRange]      = useState('')
+//   const [exclusions,    setExclusions]    = useState([])
+//   const [leadCount,     setLeadCount]     = useState('')
+//   const [status,        setStatus]        = useState('idle')
+//   const [errorMsg,      setErrorMsg]      = useState('')
+
+//   const isLoading = status === 'loading'
+
+//   const canSubmit =
+//     clientName.trim() && keywords.length && industries.length &&
+//     locations.length && leadCount && !isLoading
+
+//   /* ── Submit ── */
+//   const handleSubmit = async (e) => {
+//     e.preventDefault()
+//     if (!canSubmit) return
+//     setStatus('loading'); setErrorMsg('')
+//     try {
+//       const res = await fetch(WEBHOOK_URL, {
+//         method:  'POST',
+//         headers: { 'Content-Type': 'application/json' },
+//         body: JSON.stringify({
+//           'Client Name':                       clientName.trim(),
+//           'Client Website':                    clientWebsite.trim(),
+//           'Client Product / Service Keywords': keywords.join(', '),
+//           'Target Industries':                 industries.join(', '),
+//           'Sub-industry':                      subIndustry.join(', '),
+//           'Company Type Inputs':               companyTypes.join(', '),
+//           'Target Locations':                  locations.join(', '),
+//           'Estimated Employee Range':          empRange,
+//           'Estimated Annual Revenue Range':    revRange,
+//           'Exclusion Inputs(filters)':         exclusions.join(', '),
+//           'Lead Count':                        Number(leadCount),
+//         }),
+//       })
+//       if (!res.ok) throw new Error(`Server responded with ${res.status}`)
+//       setStatus('success')
+//     } catch (err) {
+//       console.error(err)
+//       setErrorMsg(err.message || 'Something went wrong. Please try again.')
+//       setStatus('error')
+//     }
+//   }
+
+//   const handleReset = () => {
+//     setClientName(''); setClientWebsite(''); setKeywords([]); setIndustries([])
+//     setSubIndustry([]); setCompanyTypes([]); setLocations([]); setEmpRange('')
+//     setRevRange(''); setExclusions([]); setLeadCount(''); setStatus('idle'); setErrorMsg('')
+//   }
+
+//   /* ── Payload preview object ── */
+//   const preview = {
+//     'Client Name':           clientName || '…',
+//     'Keywords':              keywords.length ? keywords.join(', ') : '…',
+//     'Target Industries':     industries.length ? industries.join(', ') : '…',
+//     'Target Locations':      locations.length ? locations.join(', ') : '…',
+//     'Lead Count':            leadCount || '…',
+//   }
+//   const showPreview = clientName || keywords.length || industries.length || locations.length || leadCount
+
+//   return (
+//     <div className="mrf-page">
+
+//       {/* ── NAV ── */}
+//       <nav className="mrf-nav">
+//         <div className="mrf-nav-brand">
+//           <img src={MOTM_LOGO} alt="MOTM Technologies" className="mrf-logo" />
+//           <div>
+//             <div className="mrf-brand-name">MOTM Technologies</div>
+//             <div className="mrf-brand-tag">Igniting Industrial Growth</div>
+//           </div>
+//         </div>
+//         <div className="mrf-nav-right">
+//           <span className="mrf-nav-badge">Market Research Tool</span>
+//           <a href="https://www.motm.tech/" target="_blank" rel="noopener noreferrer" className="mrf-nav-link">
+//             motm.tech ↗
+//           </a>
+//         </div>
+//       </nav>
+
+//       {/* ── BODY ── */}
+//       <div className="mrf-body">
+
+//         {/* ── LEFT SIDEBAR ── */}
+//         <aside className="mrf-sidebar">
+//           <div className="mrf-sidebar-inner">
+//             <img src={MOTM_LOGO} alt="MOTM" className="mrf-sidebar-logo" />
+//             <div className="mrf-sidebar-eyebrow">
+//               <span className="mrf-dot" />
+//               Market Research Engine
+//             </div>
+//             <h2 className="mrf-sidebar-headline">
+//               Discover<br />
+//               <span className="mrf-accent">Qualified</span><br />
+//               B2B Leads
+//             </h2>
+//             <p className="mrf-sidebar-sub">
+//               Fill in the details about your client and their ideal customer. Our intelligent pipeline will map, research, and deliver targeted B2B leads.
+//             </p>
+
+//             {/* Step indicators */}
+//             <div className="mrf-steps">
+//               {[
+//                 { n:'01', t:'Client Info' },
+//                 { n:'02', t:'Product & Industry' },
+//                 { n:'03', t:'Location & Size' },
+//                 { n:'04', t:'Filters & Output' },
+//               ].map((s,i) => (
+//                 <div className="mrf-step" key={i}>
+//                   <div className="mrf-step-num">{s.n}</div>
+//                   <div className="mrf-step-label">{s.t}</div>
+//                 </div>
+//               ))}
+//             </div>
+
+//             <div className="mrf-sidebar-stats">
+//               {[['11','Fields'],['B2B','Focused'],['n8n','Powered']].map(([n,l],i)=>(
+//                 <div className="mrf-sstat" key={i}>
+//                   <span className="mrf-sstat-n">{n}</span>
+//                   <span className="mrf-sstat-l">{l}</span>
+//                 </div>
+//               ))}
+//             </div>
+//           </div>
+//           <div className="mrf-blob b1" /><div className="mrf-blob b2" /><div className="mrf-blob b3" />
+//         </aside>
+
+//         {/* ── MAIN FORM AREA ── */}
+//         <main className="mrf-main">
+//           {status === 'success' ? (
+
+//             /* ── SUCCESS ── */
+//             <div className="mrf-success-card">
+//               <div className="mrf-success-icon">
+//                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+//                   <polyline points="20 6 9 17 4 12"/>
+//                 </svg>
+//               </div>
+//               <h2 className="mrf-success-title">Research Pipeline Triggered!</h2>
+//               <p className="mrf-success-sub">
+//                 Your market research request has been submitted to the n8n pipeline. The agents will begin processing shortly.
+//               </p>
+//               <div className="mrf-success-grid">
+//                 {[
+//                   ['Client',     clientName],
+//                   ['Website',    clientWebsite || '—'],
+//                   ['Keywords',   keywords.join(', ') || '—'],
+//                   ['Industries', industries.join(', ') || '—'],
+//                   ['Locations',  locations.join(', ') || '—'],
+//                   ['Lead Count', leadCount],
+//                 ].map(([k,v]) => (
+//                   <div className="mrf-success-row" key={k}>
+//                     <span className="mrf-sk">{k}</span>
+//                     <span className="mrf-sv">{v}</span>
+//                   </div>
+//                 ))}
+//               </div>
+//               <button className="mrf-btn-secondary" onClick={handleReset}>
+//                 Submit another research request
+//               </button>
+//             </div>
+
+//           ) : (
+
+//             /* ── FORM ── */
+//             <form className="mrf-form" onSubmit={handleSubmit} noValidate>
+
+//               <div className="mrf-form-top">
+//                 <h1 className="mrf-form-title">Market Research Tool</h1>
+//                 <p className="mrf-form-sub">Please enter the required details for market research. Fields marked <span className="req-star">*</span> are required.</p>
+//               </div>
+
+//               {/* ════ SECTION 1 — Client Info ════ */}
+//               <div className="mrf-section">
+//                 <SectionHead num="01" title="Client Information" desc="Basic details about the client we're researching for." />
+
+//                 <div className="mrf-row-2">
+//                   {/* Client Name */}
+//                   <div className="mrf-field">
+//                     <label className="mrf-label" htmlFor="clientName">
+//                       Client Name <span className="req-star">*</span>
+//                     </label>
+//                     <input id="clientName" type="text" className="mrf-input"
+//                       value={clientName}
+//                       onChange={e => setClientName(e.target.value)}
+//                       placeholder="eg. Sage Automation"
+//                       disabled={isLoading} required />
+//                   </div>
+
+//                   {/* Client Website */}
+//                   <div className="mrf-field">
+//                     <label className="mrf-label" htmlFor="clientWebsite">
+//                       Client Website <span className="mrf-optional">optional</span>
+//                     </label>
+//                     <input id="clientWebsite" type="url" className="mrf-input"
+//                       value={clientWebsite}
+//                       onChange={e => setClientWebsite(e.target.value)}
+//                       placeholder="eg. https://www.sagerobot.com/"
+//                       disabled={isLoading} />
+//                   </div>
+//                 </div>
+//               </div>
+
+//               {/* ════ SECTION 2 — Product & Industry ════ */}
+//               <div className="mrf-section">
+//                 <SectionHead num="02" title="Product & Industry" desc="Define the client's offerings and the industries to target." />
+
+//                 {/* Keywords */}
+//                 <div className="mrf-field">
+//                   <label className="mrf-label">
+//                     Client Product / Service Keywords <span className="req-star">*</span>
+//                     <span className="mrf-hint">— comma or Enter to add multiple</span>
+//                   </label>
+//                   <TagInput id="keywords" tags={keywords} setTags={setKeywords}
+//                     pool={KEYWORD_POOL} quickList={null}
+//                     placeholder="Robot Manufacturers, Packaging Tools, etc."
+//                     disabled={isLoading} />
+//                 </div>
+
+//                 {/* Target Industries */}
+//                 <div className="mrf-field">
+//                   <label className="mrf-label">
+//                     Target Industries <span className="req-star">*</span>
+//                     <span className="mrf-hint">— comma or Enter to add multiple</span>
+//                   </label>
+//                   <TagInput id="industries" tags={industries} setTags={setIndustries}
+//                     pool={INDUSTRY_POOL} quickList={IND_QUICK}
+//                     placeholder="Automation, FMCG manufacturer, Food Processing, etc."
+//                     disabled={isLoading} />
+//                 </div>
+
+//                 <div className="mrf-row-2">
+//                   {/* Sub-industry */}
+//                   <div className="mrf-field">
+//                     <label className="mrf-label">
+//                       Sub-industry <span className="mrf-optional">optional</span>
+//                       <span className="mrf-hint">— comma or Enter</span>
+//                     </label>
+//                     <TagInput id="subIndustry" tags={subIndustry} setTags={setSubIndustry}
+//                       pool={SUB_INDUSTRY_POOL} quickList={null}
+//                       placeholder="PLC-SCADA, Process Automation, etc."
+//                       disabled={isLoading} />
+//                   </div>
+
+//                   {/* Company Type */}
+//                   <div className="mrf-field">
+//                     <label className="mrf-label">
+//                       Company Type <span className="mrf-optional">optional</span>
+//                       <span className="mrf-hint">— comma or Enter</span>
+//                     </label>
+//                     <TagInput id="companyTypes" tags={companyTypes} setTags={setCompanyTypes}
+//                       pool={COMPANY_TYPE_POOL} quickList={TYPE_QUICK}
+//                       placeholder="manufacturer, distributor, supplier, etc."
+//                       disabled={isLoading} />
+//                   </div>
+//                 </div>
+//               </div>
+
+//               {/* ════ SECTION 3 — Location & Size ════ */}
+//               <div className="mrf-section">
+//                 <SectionHead num="03" title="Location & Company Size" desc="Where to look and what size of companies to target." />
+
+//                 {/* Locations */}
+//                 <div className="mrf-field">
+//                   <label className="mrf-label">
+//                     Target Locations <span className="req-star">*</span>
+//                     <span className="mrf-hint">— comma or Enter to add multiple</span>
+//                   </label>
+//                   <TagInput id="locations" tags={locations} setTags={setLocations}
+//                     pool={LOCATION_POOL} quickList={LOC_QUICK}
+//                     placeholder="Pune, Mumbai, Delhi, etc."
+//                     disabled={isLoading} />
+//                 </div>
+
+//                 <div className="mrf-row-2">
+//                   {/* Employee Range */}
+//                   <div className="mrf-field">
+//                     <label className="mrf-label">
+//                       Estimated Employee Range <span className="mrf-optional">optional</span>
+//                     </label>
+//                     <div className="mrf-select-wrap">
+//                       <select className="mrf-select" value={empRange}
+//                         onChange={e => setEmpRange(e.target.value)} disabled={isLoading}>
+//                         <option value="">Select range…</option>
+//                         {EMP_RANGES.map(r => <option key={r} value={r}>{r} employees</option>)}
+//                       </select>
+//                       <span className="mrf-select-arrow">▾</span>
+//                     </div>
+//                     <div className="mrf-chips" style={{marginTop:'0.4rem'}}>
+//                       {EMP_RANGES.map(r => (
+//                         <button type="button" key={r}
+//                           className={`mrf-chip ${empRange === r ? 'active' : ''}`}
+//                           onClick={() => setEmpRange(empRange === r ? '' : r)}
+//                           disabled={isLoading}>
+//                           {r}
+//                         </button>
+//                       ))}
+//                     </div>
+//                   </div>
+
+//                   {/* Revenue Range */}
+//                   <div className="mrf-field">
+//                     <label className="mrf-label">
+//                       Estimated Annual Revenue <span className="mrf-optional">optional</span>
+//                     </label>
+//                     <div className="mrf-select-wrap">
+//                       <select className="mrf-select" value={revRange}
+//                         onChange={e => setRevRange(e.target.value)} disabled={isLoading}>
+//                         <option value="">Select range…</option>
+//                         {REV_RANGES.map(r => <option key={r} value={r}>{r}</option>)}
+//                       </select>
+//                       <span className="mrf-select-arrow">▾</span>
+//                     </div>
+//                     <div className="mrf-chips" style={{marginTop:'0.4rem'}}>
+//                       {REV_RANGES.map(r => (
+//                         <button type="button" key={r}
+//                           className={`mrf-chip ${revRange === r ? 'active' : ''}`}
+//                           onClick={() => setRevRange(revRange === r ? '' : r)}
+//                           disabled={isLoading}>
+//                           {r}
+//                         </button>
+//                       ))}
+//                     </div>
+//                   </div>
+//                 </div>
+//               </div>
+
+//               {/* ════ SECTION 4 — Filters & Output ════ */}
+//               <div className="mrf-section">
+//                 <SectionHead num="04" title="Filters & Output" desc="Exclude unwanted results and set your desired lead count." />
+
+//                 <div className="mrf-row-2">
+//                   {/* Exclusions */}
+//                   <div className="mrf-field">
+//                     <label className="mrf-label">
+//                       Exclusion Filters <span className="mrf-optional">optional</span>
+//                       <span className="mrf-hint">— comma or Enter</span>
+//                     </label>
+//                     <TagInput id="exclusions" tags={exclusions} setTags={setExclusions}
+//                       pool={EXCLUSION_POOL} quickList={null}
+//                       placeholder="dealers, retailers, etc."
+//                       disabled={isLoading} />
+//                   </div>
+
+//                   {/* Lead Count */}
+//                   <div className="mrf-field">
+//                     <label className="mrf-label" htmlFor="leadCount">
+//                       Lead Count <span className="req-star">*</span>
+//                     </label>
+//                     <input id="leadCount" type="number" className="mrf-input mrf-input-number"
+//                       value={leadCount} min="1" max="500"
+//                       onChange={e => setLeadCount(e.target.value)}
+//                       placeholder="eg. 20"
+//                       disabled={isLoading} required />
+//                     <div className="mrf-chips" style={{marginTop:'0.4rem'}}>
+//                       {[10,20,50,100].map(n => (
+//                         <button type="button" key={n}
+//                           className={`mrf-chip ${Number(leadCount) === n ? 'active' : ''}`}
+//                           onClick={() => setLeadCount(String(n))}
+//                           disabled={isLoading}>
+//                           {n} leads
+//                         </button>
+//                       ))}
+//                     </div>
+//                   </div>
+//                 </div>
+//               </div>
+
+//               {/* ── Error ── */}
+//               {status === 'error' && (
+//                 <div className="mrf-error">
+//                   <span>⚠</span> {errorMsg}
+//                 </div>
+//               )}
+
+//               {/* ── Payload Preview ── */}
+//               {showPreview && (
+//                 <div className="mrf-preview">
+//                   <div className="mrf-preview-bar">
+//                     <div className="mrf-preview-dots">
+//                       <span className="pd red"/><span className="pd yellow"/><span className="pd green"/>
+//                     </div>
+//                     <span className="mrf-preview-label">POST payload preview</span>
+//                     <span className="mrf-preview-badge">application/json</span>
+//                   </div>
+//                   <pre className="mrf-preview-code">{JSON.stringify(preview, null, 2)}</pre>
+//                 </div>
+//               )}
+
+//               {/* ── Submit ── */}
+//               <button type="submit" className="mrf-submit" disabled={!canSubmit}>
+//                 {isLoading ? (
+//                   <><span className="mrf-spinner" />Running Market Research Pipeline…</>
+//                 ) : (
+//                   <>
+//                     <span className="mrf-btn-play">▶</span>
+//                     Start Market Research
+//                     <span className="mrf-btn-arrow">→</span>
+//                   </>
+//                 )}
+//               </button>
+
+//               <p className="mrf-note">
+//                 Fields marked <span className="req-star">*</span> are required. Data is sent via POST to the n8n automation pipeline.
+//               </p>
+//             </form>
+//           )}
+//         </main>
+//       </div>
+//     </div>
+//   )
+// }
+

@@ -1,27 +1,56 @@
+
 import { useState, useRef, useCallback } from 'react'
 import './App.css'
 
-const WEBHOOK_URL = 'https://n8n.b2botix.ai/webhook/lead_gen_form'
+const WEBHOOK_URL = 'https://n8n.b2botix.ai/webhook/market_research_tool'
+// const WEBHOOK_URL = 'https://n8n.b2botix.ai/webhook-test/market_research_tool'
 const MOTM_LOGO   = 'https://www.motm.tech/wp-content/uploads/2020/03/Final-MOTM-logo.png'
 
-const ICP_POOL = [
-  'Chemical Manufacturer', 'Pharmaceutical', 'Tool Manufacturer',
-  'Automotive', 'Heavy Engineering', 'Additive Manufacturing',
-  'Embedded Systems', 'Industrial Automation', 'Defence',
-  'Micro Controllers', 'IoT & Sensors',
+/* ── Suggestion pools ─────────────────────────────── */
+const KEYWORD_POOL = [
+  'Robot Manufacturers', 'Packaging Tools', 'CNC Machines', 'Industrial Automation',
+  'Conveyor Systems', 'Welding Equipment', 'PLC Systems', 'Hydraulic Systems',
+  'Pneumatic Components', 'Vision Systems', 'Sensors & Actuators', 'SCADA Software',
 ]
 
-const LOC_POOL = [
-  'Pune', 'Mumbai', 'Delhi', 'Bangalore',
-  'Hyderabad', 'Chennai', 'Ahmedabad', 'Surat',
-  'Nashik', 'Nagpur', 'Coimbatore', 'Ludhiana',
+const INDUSTRY_POOL = [
+  'Automation', 'FMCG Manufacturer', 'Food Processing', 'Pharmaceutical',
+  'Automotive', 'Aerospace', 'Chemical', 'Textile', 'Steel & Metal',
+  'Plastic & Rubber', 'Electronics', 'Heavy Engineering', 'Defence',
 ]
 
-const ICP_QUICK  = ['Chemical manufacturer', 'Pharmaceutical company', 'Automotive', 'Tool Manufacturer', 'FMCG manufacturer']
-const LOC_QUICK  = ['Pune', 'Mumbai', 'Delhi', 'Bangalore', 'Hyderabad']
+const SUB_INDUSTRY_POOL = [
+  'PLC-SCADA', 'Process Automation', 'Factory Automation', 'Robotics Integration',
+  'Machine Vision', 'Motion Control', 'Industrial IoT', 'Batch Processing',
+  'Assembly Lines', 'Quality Control', 'Material Handling',
+]
 
-/* ─── Reusable tag-input ─────────────────────────────────── */
-function TagInput({ id, tags, setTags, pool, quickList, placeholder, icon, disabled }) {
+const COMPANY_TYPE_POOL = [
+  'Manufacturer', 'Distributor', 'Supplier', 'OEM', 'System Integrator',
+  'Trading Company', 'EPC Contractor', 'Consultant', 'Service Provider',
+]
+
+const LOCATION_POOL = [
+  'Pune', 'Mumbai', 'Delhi', 'Bangalore', 'Hyderabad', 'Chennai',
+  'Ahmedabad', 'Surat', 'Nashik', 'Nagpur', 'Coimbatore', 'Ludhiana',
+  'Vadodara', 'Rajkot', 'Kolkata', 'Jaipur',
+]
+
+const EXCLUSION_POOL = [
+  'Dealers', 'Retailers', 'Importers', 'Exporters', 'Startups',
+  'Freelancers', 'Consultants', 'Agencies',
+]
+
+const EMP_RANGES  = ['1–10', '10–50', '50–200', '200–500', '500–1000', '1000+']
+const REV_RANGES  = ['< 1 CR', '1–5 CR', '5–25 CR', '25–100 CR', '100 CR+']
+const LOC_QUICK   = ['Pune', 'Mumbai', 'Delhi', 'Bangalore', 'Hyderabad']
+const IND_QUICK   = ['Automation', 'FMCG', 'Automotive', 'Pharma', 'Food Processing']
+const TYPE_QUICK  = ['Manufacturer', 'Distributor', 'Supplier', 'OEM']
+
+/* ══════════════════════════════════════════════════
+   Reusable tag-input (same pattern as LeadForm)
+══════════════════════════════════════════════════ */
+function TagInput({ id, tags, setTags, pool, quickList, placeholder, disabled }) {
   const [draft, setDraft]       = useState('')
   const [showDrop, setShowDrop] = useState(false)
   const inputRef                = useRef(null)
@@ -36,8 +65,7 @@ function TagInput({ id, tags, setTags, pool, quickList, placeholder, icon, disab
     const vals = raw.split(',').map(v => v.trim()).filter(Boolean)
     setTags(prev => {
       const existing = prev.map(t => t.toLowerCase())
-      const fresh    = vals.filter(v => !existing.includes(v.toLowerCase()))
-      return [...prev, ...fresh]
+      return [...prev, ...vals.filter(v => !existing.includes(v.toLowerCase()))]
     })
     setDraft('')
     setShowDrop(false)
@@ -47,8 +75,7 @@ function TagInput({ id, tags, setTags, pool, quickList, placeholder, icon, disab
 
   const handleKey = (e) => {
     if ((e.key === ',' || e.key === 'Enter') && draft.trim()) {
-      e.preventDefault()
-      addTag(draft)
+      e.preventDefault(); addTag(draft)
     }
     if (e.key === 'Backspace' && !draft && tags.length) {
       setTags(prev => prev.slice(0, -1))
@@ -56,71 +83,40 @@ function TagInput({ id, tags, setTags, pool, quickList, placeholder, icon, disab
   }
 
   const toggleQuick = (chip) => {
-    const already = tags.map(t => t.toLowerCase()).includes(chip.toLowerCase())
-    if (already) setTags(prev => prev.filter(t => t.toLowerCase() !== chip.toLowerCase()))
-    else         setTags(prev => [...prev, chip])
+    const has = tags.map(t => t.toLowerCase()).includes(chip.toLowerCase())
+    has ? setTags(prev => prev.filter(t => t.toLowerCase() !== chip.toLowerCase()))
+        : setTags(prev => [...prev, chip])
   }
 
   return (
-    <div className="lf-field">
-      <label htmlFor={id} className="lf-label">
-        <span className="lf-label-icon">{icon}</span>
-        {id === 'icp' ? 'Ideal Customer Profile (ICP)' : 'Location'}
-        <span className="lf-required">*</span>
-        <span className="lf-label-hint">— separate multiple with comma or Enter</span>
-      </label>
-
-      {/* Tag box */}
+    <div className={`mrf-tagbox-wrap ${disabled ? 'mrf-disabled' : ''}`}>
       <div
-        className={`lf-tagbox ${tags.length ? 'lf-tagbox-filled' : ''} ${disabled ? 'lf-tagbox-disabled' : ''}`}
+        className={`mrf-tagbox ${tags.length ? 'filled' : ''}`}
         onClick={() => !disabled && inputRef.current?.focus()}
       >
-        {/* Existing tags */}
         {tags.map((tag, i) => (
-          <span className="lf-tag" key={i}>
+          <span className="mrf-tag" key={i}>
             {tag}
-            <button
-              type="button"
-              className="lf-tag-remove"
-              onClick={(e) => { e.stopPropagation(); removeTag(i) }}
-              disabled={disabled}
-              aria-label={`Remove ${tag}`}
-            >×</button>
+            <button type="button" className="mrf-tag-x"
+              onClick={e => { e.stopPropagation(); removeTag(i) }}
+              disabled={disabled}>×</button>
           </span>
         ))}
-
-        {/* Live input */}
-        <div className="lf-tag-input-wrap">
+        <div className="mrf-tag-input-wrap">
           <input
-            ref={inputRef}
-            id={id}
-            type="text"
+            ref={inputRef} id={id} type="text"
             value={draft}
             onChange={e => { setDraft(e.target.value); setShowDrop(true) }}
             onKeyDown={handleKey}
             onFocus={() => setShowDrop(true)}
-            onBlur={() => {
-              setTimeout(() => {
-                if (draft.trim()) addTag(draft)
-                setShowDrop(false)
-              }, 160)
-            }}
+            onBlur={() => setTimeout(() => { if (draft.trim()) addTag(draft); setShowDrop(false) }, 160)}
             placeholder={tags.length ? '' : placeholder}
-            className="lf-tag-input"
-            disabled={disabled}
-            autoComplete="off"
+            className="mrf-tag-input" disabled={disabled} autoComplete="off"
           />
-
-          {/* Dropdown */}
           {showDrop && suggestions.length > 0 && (
-            <div className="lf-suggestions">
+            <div className="mrf-suggestions">
               {suggestions.map(s => (
-                <div
-                  key={s}
-                  className="lf-suggestion-item"
-                  onMouseDown={() => { addTag(s) }}
-                >
-                  <span className="lf-sug-icon">{icon}</span>
+                <div key={s} className="mrf-sug-item" onMouseDown={() => addTag(s)}>
                   {s}
                 </div>
               ))}
@@ -129,59 +125,92 @@ function TagInput({ id, tags, setTags, pool, quickList, placeholder, icon, disab
         </div>
       </div>
 
-      {/* Count hint */}
       {tags.length > 0 && (
-        <div className="lf-tags-count">
-          {tags.length} {tags.length === 1 ? 'value' : 'values'} added
-          <button type="button" className="lf-clear-all" onClick={() => setTags([])}>Clear all</button>
+        <div className="mrf-tag-meta">
+          <span>{tags.length} value{tags.length > 1 ? 's' : ''} added</span>
+          <button type="button" className="mrf-clear-all" onClick={() => setTags([])}>Clear all</button>
         </div>
       )}
 
-      {/* Quick chips */}
-      <div className="lf-chips">
-        {quickList.map(chip => {
-          const active = tags.map(t => t.toLowerCase()).includes(chip.toLowerCase())
-          return (
-            <button
-              type="button"
-              key={chip}
-              className={`lf-chip ${active ? 'lf-chip-active' : ''}`}
-              onClick={() => toggleQuick(chip)}
-              disabled={disabled}
-            >
-              {active ? '✓ ' : '+ '}{chip}
-            </button>
-          )
-        })}
+      {quickList && (
+        <div className="mrf-chips">
+          {quickList.map(chip => {
+            const active = tags.map(t => t.toLowerCase()).includes(chip.toLowerCase())
+            return (
+              <button type="button" key={chip}
+                className={`mrf-chip ${active ? 'active' : ''}`}
+                onClick={() => toggleQuick(chip)} disabled={disabled}>
+                {active ? '✓ ' : '+ '}{chip}
+              </button>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/* ══════════════════════════════════════════════════
+   Section heading
+══════════════════════════════════════════════════ */
+function SectionHead({ num, title, desc }) {
+  return (
+    <div className="mrf-section-head">
+      <div className="mrf-section-num">{num}</div>
+      <div>
+        <div className="mrf-section-title">{title}</div>
+        {desc && <div className="mrf-section-desc">{desc}</div>}
       </div>
     </div>
   )
 }
 
-/* ─── Main component ────────────────────────────────────── */
-export default function LeadForm() {
-  const [icpTags,  setIcpTags]  = useState([])
-  const [locTags,  setLocTags]  = useState([])
-  const [status,   setStatus]   = useState('idle')   // idle | loading | success | error
-  const [errorMsg, setErrorMsg] = useState('')
+/* ══════════════════════════════════════════════════
+   Main Form
+══════════════════════════════════════════════════ */
+export default function MarketResearchForm() {
+  /* ── State ── */
+  const [clientName,    setClientName]    = useState('')
+  const [clientWebsite, setClientWebsite] = useState('')
+  const [keywords,      setKeywords]      = useState([])
+  const [industries,    setIndustries]    = useState([])
+  const [subIndustry,   setSubIndustry]   = useState([])
+  const [companyTypes,  setCompanyTypes]  = useState([])
+  const [locations,     setLocations]     = useState([])
+  const [empRange,      setEmpRange]      = useState('')
+  const [revRange,      setRevRange]      = useState('')
+  const [exclusions,    setExclusions]    = useState([])
+  const [leadCount,     setLeadCount]     = useState('')
+  const [status,        setStatus]        = useState('idle')
+  const [errorMsg,      setErrorMsg]      = useState('')
 
-  const icpStr = icpTags.join(', ')
-  const locStr = locTags.join(', ')
+  const isLoading = status === 'loading'
 
+  const canSubmit =
+    clientName.trim() && keywords.length && industries.length &&
+    locations.length && leadCount && !isLoading
+
+  // /* ── Submit ── */
   // const handleSubmit = async (e) => {
   //   e.preventDefault()
-  //   if (!icpTags.length || !locTags.length) return
-
-  //   setStatus('loading')
-  //   setErrorMsg('')
-
+  //   if (!canSubmit) return
+  //   setStatus('loading'); setErrorMsg('')
   //   try {
   //     const res = await fetch(WEBHOOK_URL, {
   //       method:  'POST',
   //       headers: { 'Content-Type': 'application/json' },
   //       body: JSON.stringify({
-  //         ICP:      icpStr,
-  //         Location: locStr,
+  //         'Client Name':                       clientName.trim(),
+  //         'Client Website':                    clientWebsite.trim(),
+  //         'Client Product / Service Keywords': keywords.join(', '),
+  //         'Target Industries':                 industries.join(', '),
+  //         'Sub-industry':                      subIndustry.join(', '),
+  //         'Company Type Inputs':               companyTypes.join(', '),
+  //         'Target Locations':                  locations.join(', '),
+  //         'Estimated Employee Range':          empRange,
+  //         'Estimated Annual Revenue Range':    revRange,
+  //         'Exclusion Inputs(filters)':         exclusions.join(', '),
+  //         'Lead Count':                        Number(leadCount),
   //       }),
   //     })
   //     if (!res.ok) throw new Error(`Server responded with ${res.status}`)
@@ -193,282 +222,445 @@ export default function LeadForm() {
   //   }
   // }
 
-
-    const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!icpTags.length || !locTags.length) return;
-
-    setStatus('loading');
-    setErrorMsg('');
-
+  /* ── Submit ── */
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    if (!canSubmit) return
+    setStatus('loading'); setErrorMsg('')
     try {
       const res = await fetch(WEBHOOK_URL, {
-        method: 'POST',
+        method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          ICP: icpStr,
-          Location: locStr,
+          'Client Name':                       clientName.trim(),
+          'Client Website':                    clientWebsite.trim(),
+          'Client Product / Service Keywords': keywords.join(', '),
+          'Target Industries':                 industries.join(', '),
+          'Sub-industry':                      subIndustry.join(', '),
+          'Company Type Inputs':               companyTypes.join(', '),
+          'Target Locations':                  locations.join(', '),
+          'Estimated Employee Range':          empRange,
+          'Estimated Annual Revenue Range':    revRange,
+          'Exclusion Inputs(filters)':         exclusions.join(', '),
+          'Lead Count':                        Number(leadCount),
         }),
-      });
-
-      if (!res.ok) throw new Error(`Server responded with ${res.status}`);
-
-      // 🔥 CRITICAL PART
-      const blob = await res.blob();
-
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'leads.xlsx'; // file name (Renaming the file and then downloading...)
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.URL.revokeObjectURL(url);
-
-      setStatus('success');
-
+      })
+      if (!res.ok) throw new Error(`Server responded with ${res.status}`)
+ 
+      // ── Auto-download the returned file ──────────────────────────
+      const contentType = res.headers.get('Content-Type') || ''
+      const blob        = await res.blob()
+ 
+      // Derive filename from Content-Disposition header, or build one from inputs
+      const disposition = res.headers.get('Content-Disposition') || ''
+      const nameMatch   = disposition.match(/filename\*?=["']?([^"';\n]+)["']?/i)
+      const ext = contentType.includes('sheet') || contentType.includes('excel') ? '.xlsx'
+                : contentType.includes('csv')   ? '.csv'
+                : contentType.includes('pdf')   ? '.pdf'
+                : ''
+      const fileName = nameMatch
+        ? nameMatch[1].trim()
+        : `${clientName.trim().replace(/\s+/g, '_')}_leads_${new Date().toISOString().slice(0, 10)}${ext}`
+ 
+      const url  = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href     = url
+      link.download = fileName
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      URL.revokeObjectURL(url)
+      // ─────────────────────────────────────────────────────────────
+ 
+      setStatus('success')
     } catch (err) {
-      console.error(err);
-      setErrorMsg(err.message || 'Something went wrong.');
-      setStatus('error');
+      console.error(err)
+      setErrorMsg(err.message || 'Something went wrong. Please try again.')
+      setStatus('error')
     }
-  };
-
-  const handleReset = () => {
-    setIcpTags([])
-    setLocTags([])
-    setStatus('idle')
-    setErrorMsg('')
   }
 
-  const canSubmit = icpTags.length > 0 && locTags.length > 0 && status !== 'loading'
-  const showPreview = icpTags.length > 0 || locTags.length > 0
+  const handleReset = () => {
+    setClientName(''); setClientWebsite(''); setKeywords([]); setIndustries([])
+    setSubIndustry([]); setCompanyTypes([]); setLocations([]); setEmpRange('')
+    setRevRange(''); setExclusions([]); setLeadCount(''); setStatus('idle'); setErrorMsg('')
+  }
+
+  /* ── Payload preview object — all 11 fields ── */
+  const preview = {
+    'Client Name':                       clientName          || '…',
+    'Client Website':                    clientWebsite       || '—',
+    'Client Product / Service Keywords': keywords.length     ? keywords.join(', ')    : '…',
+    'Target Industries':                 industries.length   ? industries.join(', ')  : '…',
+    'Sub-industry':                      subIndustry.length  ? subIndustry.join(', ') : '—',
+    'Company Type Inputs':               companyTypes.length ? companyTypes.join(', '): '—',
+    'Target Locations':                  locations.length    ? locations.join(', ')   : '…',
+    'Estimated Employee Range':          empRange            || '—',
+    'Estimated Annual Revenue Range':    revRange            || '—',
+    'Exclusion Inputs(filters)':         exclusions.length   ? exclusions.join(', ')  : '—',
+    'Lead Count':                        leadCount           || '…',
+  }
+  const showPreview = clientName || keywords.length || industries.length || locations.length || leadCount
+    || clientWebsite || subIndustry.length || companyTypes.length || empRange || revRange || exclusions.length
 
   return (
-    <div className="lf-page">
+    <div className="mrf-page">
 
       {/* ── NAV ── */}
-      <nav className="lf-nav">
-        <div className="lf-nav-brand">
-          <img
-            src={MOTM_LOGO}
-            alt="MOTM Technologies"
-            className="lf-logo-img"
-            width="48"
-            height="48"
-          />
+      <nav className="mrf-nav">
+        <div className="mrf-nav-brand">
+          <img src={MOTM_LOGO} alt="MOTM Technologies" className="mrf-logo" />
           <div>
-            <div className="lf-brand-name">MOTM Technologies</div>
-            <div className="lf-brand-tag">Igniting Industrial Growth</div>
+            <div className="mrf-brand-name">MOTM Technologies</div>
+            <div className="mrf-brand-tag">Igniting Industrial Growth</div>
           </div>
         </div>
-        <a href="https://www.motm.tech/" target="_blank" rel="noopener noreferrer" className="lf-nav-link">
-          motm.tech ↗
-        </a>
+        <div className="mrf-nav-right">
+          <span className="mrf-nav-badge">Market Research Tool</span>
+          <a href="https://www.motm.tech/" target="_blank" rel="noopener noreferrer" className="mrf-nav-link">
+            motm.tech ↗
+          </a>
+        </div>
       </nav>
 
-      {/* ── MAIN ── */}
-      <main className="lf-main">
+      {/* ── BODY ── */}
+      <div className="mrf-body">
 
-        {/* LEFT PANEL */}
-        <div className="lf-left">
-          <div className="lf-left-inner">
-
-            {/* <div className="lf-left-logo-wrap">
-              <img src={MOTM_LOGO} alt="MOTM Technologies" className="lf-left-logo" />
-            </div> */}
-
-            <div className="lf-eyebrow">
-              <span className="lf-eyebrow-dot" />
-              Lead Generation Engine
+        {/* ── LEFT SIDEBAR ── */}
+        <aside className="mrf-sidebar">
+          <div className="mrf-sidebar-inner">
+            <img src={MOTM_LOGO} alt="MOTM" className="mrf-sidebar-logo" />
+            <div className="mrf-sidebar-eyebrow">
+              <span className="mrf-dot" />
+              Market Research Engine
             </div>
-
-            <h1 className="lf-headline">
-              Find Your<br />
-              <span className="lf-headline-accent">Ideal</span><br />
-              Customers
-            </h1>
-
-            <p className="lf-left-sub">
-              Tell us your Ideal Customer Profiles and target locations. Our intelligent pipeline will discover, enrich, and deliver qualified B2B leads directly to you.
+            <h2 className="mrf-sidebar-headline">
+              Discover<br />
+              <span className="mrf-accent">Qualified</span><br />
+              B2B Leads
+            </h2>
+            <p className="mrf-sidebar-sub">
+              Fill in the details about your client and their ideal customer. Our intelligent pipeline will map, research, and deliver targeted B2B leads.
             </p>
 
-            <div className="lf-features">
+            {/* Step indicators */}
+            <div className="mrf-steps">
               {[
-                // { icon: '🎯', title: 'Multi-ICP Targeting',   desc: 'Target multiple sectors in a single pipeline run' },
-                // { icon: '📍', title: 'Multi-City Discovery',  desc: 'Hyper-local lead discovery across Indian markets'  },
-                // { icon: '⚡', title: 'Auto Pipeline',         desc: 'n8n-powered 3-agent enrichment & outreach flow'   },
-                { icon: '🎯', title: 'ICP Targeting',   desc: 'Precision targeting for engineering & industrial sectors' },
-                { icon: '📍', title: 'Location Mapping', desc: 'Map-based lead discovery across Indian markets'         },
-                { icon: '⚡', title: 'Auto Pipeline',    desc: 'n8n-powered AI-agent enrichment & outreach flow'          },
-              ].map((f, i) => (
-                <div className="lf-feature" key={i} style={{ animationDelay: `${0.3 + i * 0.1}s` }}>
-                  <div className="lf-feature-icon">{f.icon}</div>
-                  <div>
-                    <div className="lf-feature-title">{f.title}</div>
-                    <div className="lf-feature-desc">{f.desc}</div>
-                  </div>
+                { n:'01', t:'Client Info' },
+                { n:'02', t:'Product & Industry' },
+                { n:'03', t:'Location & Size' },
+                { n:'04', t:'Filters & Output' },
+              ].map((s,i) => (
+                <div className="mrf-step" key={i}>
+                  <div className="mrf-step-num">{s.n}</div>
+                  <div className="mrf-step-label">{s.t}</div>
                 </div>
               ))}
             </div>
 
-            <div className="lf-stats-row">
-              {[['B2B', 'Focused'], ['SME', 'Specialist'], ['n8n', 'Powered']].map(([n, l], i) => (
-                <div className="lf-stat" key={i}>
-                  <span className="lf-stat-num">{n}</span>
-                  <span className="lf-stat-lbl">{l}</span>
+            <div className="mrf-sidebar-stats">
+              {[['11','Fields'],['B2B','Focused'],['n8n','Powered']].map(([n,l],i)=>(
+                <div className="mrf-sstat" key={i}>
+                  <span className="mrf-sstat-n">{n}</span>
+                  <span className="mrf-sstat-l">{l}</span>
                 </div>
               ))}
             </div>
           </div>
+          <div className="mrf-blob b1" /><div className="mrf-blob b2" /><div className="mrf-blob b3" />
+        </aside>
 
-          <div className="lf-blob lf-blob-1" aria-hidden="true" />
-          <div className="lf-blob lf-blob-2" aria-hidden="true" />
-          <div className="lf-blob lf-blob-3" aria-hidden="true" />
-        </div>
+        {/* ── MAIN FORM AREA ── */}
+        <main className="mrf-main">
+          {status === 'success' ? (
 
-        {/* RIGHT PANEL */}
-        <div className="lf-right">
-          <div className="lf-form-card">
-
-            {status === 'success' ? (
-              /* ── SUCCESS STATE ── */
-              <div className="lf-success">
-                <div className="lf-success-ring">
-                  <div className="lf-success-check">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                      <polyline points="20 6 9 17 4 12"/>
-                    </svg>
-                  </div>
-                </div>
-                <h2 className="lf-success-title">Pipeline Triggered!</h2>
-                <p className="lf-success-sub">
-                  {/* Your lead generation request has been sent to the n8n pipeline. The lead excel file downloaded successfully  */}
-                  Your lead generation request has been successfully processed. The Excel file containing your leads has been downloaded.
-                </p>
-
-                <div className="lf-success-detail">
-                  <div className="lf-success-row">
-                    <span className="lf-success-key">ICP</span>
-                    <div className="lf-success-tags">
-                      {icpTags.map(t => <span key={t} className="lf-success-tag">{t}</span>)}
-                    </div>
-                  </div>
-                  <div className="lf-success-row">
-                    <span className="lf-success-key">Location</span>
-                    <div className="lf-success-tags">
-                      {locTags.map(t => <span key={t} className="lf-success-tag">{t}</span>)}
-                    </div>
-                  </div>
-                  <div className="lf-success-row">
-                    <span className="lf-success-key">Status</span>
-                    <span className="lf-success-val lf-green">✓ Submitted to n8n</span>
-                  </div>
-                </div>
-
-                <button className="lf-btn-secondary" onClick={handleReset}>
-                  Submit another request
-                </button>
+            /* ── SUCCESS ── */
+            <div className="mrf-success-card">
+              <div className="mrf-success-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="20 6 9 17 4 12"/>
+                </svg>
               </div>
-            ) : (
-              /* ── FORM STATE ── */
-              <>
-                <div className="lf-form-header">
-                  <div className="lf-form-icon">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
-                      <circle cx="9" cy="7" r="4"/>
-                      <path d="M23 21v-2a4 4 0 00-3-3.87"/>
-                      <path d="M16 3.13a4 4 0 010 7.75"/>
-                    </svg>
+              <h2 className="mrf-success-title">Pipeline Triggered!</h2>
+              <p className="mrf-success-sub">
+                Your Market Research request has been successfully processed. The Excel file containing your leads has been downloaded.
+              </p>
+
+              {/* INPUT summary section */}
+              <div className="mrf-success-section-label">INPUT</div>
+              <div className="mrf-success-grid">
+                {[
+                  ['Client Name',        clientName],
+                  ['Client Website',     clientWebsite || '—'],
+                  ['Keywords',           keywords.join(', ')     || '—'],
+                  ['Target Industries',  industries.join(', ')   || '—'],
+                  ['Sub-industry',       subIndustry.join(', ')  || '—'],
+                  ['Company Type',       companyTypes.join(', ') || '—'],
+                  ['Target Locations',   locations.join(', ')    || '—'],
+                  ['Employee Range',     empRange                || '—'],
+                  ['Revenue Range',      revRange                || '—'],
+                  ['Exclusions',         exclusions.join(', ')   || '—'],
+                  ['Lead Count',         leadCount],
+                  ['Status',             '✓ Submitted to n8n'],
+                ].map(([k, v]) => (
+                  <div className="mrf-success-row" key={k}>
+                    <span className="mrf-sk">{k}</span>
+                    <span className={`mrf-sv ${k === 'Status' ? 'mrf-sv-green' : ''}`}>{v}</span>
                   </div>
-                  <div>
-                    <h2 className="lf-form-title">Lead Generation Form</h2>
-                    <p className="lf-form-subtitle">Enter details to start the pipeline — multiple values supported</p>
+                ))}
+              </div>
+              <button className="mrf-btn-secondary" onClick={handleReset}>
+                Submit another research request
+              </button>
+            </div>
+
+          ) : (
+
+            /* ── FORM ── */
+            <form className="mrf-form" onSubmit={handleSubmit} noValidate>
+
+              <div className="mrf-form-top">
+                <h1 className="mrf-form-title">Market Research Tool</h1>
+                <p className="mrf-form-sub">Please enter the required details for market research. Fields marked <span className="req-star">*</span> are required.</p>
+              </div>
+
+              {/* ════ SECTION 1 — Client Info ════ */}
+              <div className="mrf-section">
+                <SectionHead num="01" title="Client Information" desc="Basic details about the client we're researching for." />
+
+                <div className="mrf-row-2">
+                  {/* Client Name */}
+                  <div className="mrf-field">
+                    <label className="mrf-label" htmlFor="clientName">
+                      Client Name <span className="req-star">*</span>
+                    </label>
+                    <input id="clientName" type="text" className="mrf-input"
+                      value={clientName}
+                      onChange={e => setClientName(e.target.value)}
+                      placeholder="eg. Sage Automation"
+                      disabled={isLoading} required />
+                  </div>
+
+                  {/* Client Website */}
+                  <div className="mrf-field">
+                    <label className="mrf-label" htmlFor="clientWebsite">
+                      Client Website <span className="mrf-optional">optional</span>
+                    </label>
+                    <input id="clientWebsite" type="url" className="mrf-input"
+                      value={clientWebsite}
+                      onChange={e => setClientWebsite(e.target.value)}
+                      placeholder="eg. https://www.sagerobot.com/"
+                      disabled={isLoading} />
                   </div>
                 </div>
+              </div>
 
-                <div className="lf-divider" />
+              {/* ════ SECTION 2 — Product & Industry ════ */}
+              <div className="mrf-section">
+                <SectionHead num="02" title="Product & Industry" desc="Define the client's offerings and the industries to target." />
 
-                <form onSubmit={handleSubmit} className="lf-form" noValidate>
+                {/* Keywords */}
+                <div className="mrf-field">
+                  <label className="mrf-label">
+                    Client Product / Service Keywords <span className="req-star">*</span>
+                    <span className="mrf-hint">— comma or Enter to add multiple</span>
+                  </label>
+                  <TagInput id="keywords" tags={keywords} setTags={setKeywords}
+                    pool={KEYWORD_POOL} quickList={null}
+                    placeholder="Robot Manufacturers, Packaging Tools, etc."
+                    disabled={isLoading} />
+                </div>
 
-                  <TagInput
-                    id="icp" // IDEAL CUSTOMER PROFILE
-                    tags={icpTags}
-                    setTags={setIcpTags}
-                    pool={ICP_POOL}
-                    quickList={ICP_QUICK}
-                    placeholder="chemical, pharmaceutical, tool manufacturer…"
-                    icon="🎯"
-                    disabled={status === 'loading'}
-                  />
+                {/* Target Industries */}
+                <div className="mrf-field">
+                  <label className="mrf-label">
+                    Target Industries <span className="req-star">*</span>
+                    <span className="mrf-hint">— comma or Enter to add multiple</span>
+                  </label>
+                  <TagInput id="industries" tags={industries} setTags={setIndustries}
+                    pool={INDUSTRY_POOL} quickList={IND_QUICK}
+                    placeholder="Automation, FMCG manufacturer, Food Processing, etc."
+                    disabled={isLoading} />
+                </div>
 
-                  <TagInput
-                    id="location" //TARGET LOCATION
-                    tags={locTags}
-                    setTags={setLocTags}
-                    pool={LOC_POOL}
-                    quickList={LOC_QUICK}
-                    placeholder="pune, mumbai, delhi…"
-                    icon="📍"
-                    disabled={status === 'loading'}
-                  />
+                <div className="mrf-row-2">
+                  {/* Sub-industry */}
+                  <div className="mrf-field">
+                    <label className="mrf-label">
+                      Sub-industry <span className="mrf-optional">optional</span>
+                      <span className="mrf-hint">— comma or Enter</span>
+                    </label>
+                    <TagInput id="subIndustry" tags={subIndustry} setTags={setSubIndustry}
+                      pool={SUB_INDUSTRY_POOL} quickList={null}
+                      placeholder="PLC-SCADA, Process Automation, etc."
+                      disabled={isLoading} />
+                  </div>
 
-                  {/* Error */}
-                  {status === 'error' && (
-                    <div className="lf-error-box">
-                      <span>⚠</span> {errorMsg}
+                  {/* Company Type */}
+                  <div className="mrf-field">
+                    <label className="mrf-label">
+                      Company Type <span className="mrf-optional">optional</span>
+                      <span className="mrf-hint">— comma or Enter</span>
+                    </label>
+                    <TagInput id="companyTypes" tags={companyTypes} setTags={setCompanyTypes}
+                      pool={COMPANY_TYPE_POOL} quickList={TYPE_QUICK}
+                      placeholder="manufacturer, distributor, supplier, etc."
+                      disabled={isLoading} />
+                  </div>
+                </div>
+              </div>
+
+              {/* ════ SECTION 3 — Location & Size ════ */}
+              <div className="mrf-section">
+                <SectionHead num="03" title="Location & Company Size" desc="Where to look and what size of companies to target." />
+
+                {/* Locations */}
+                <div className="mrf-field">
+                  <label className="mrf-label">
+                    Target Locations <span className="req-star">*</span>
+                    <span className="mrf-hint">— comma or Enter to add multiple</span>
+                  </label>
+                  <TagInput id="locations" tags={locations} setTags={setLocations}
+                    pool={LOCATION_POOL} quickList={LOC_QUICK}
+                    placeholder="Pune, Mumbai, Delhi, etc."
+                    disabled={isLoading} />
+                </div>
+
+                <div className="mrf-row-2">
+                  {/* Employee Range */}
+                  <div className="mrf-field">
+                    <label className="mrf-label">
+                      Estimated Employee Range <span className="mrf-optional">optional</span>
+                    </label>
+                    <div className="mrf-select-wrap">
+                      <select className="mrf-select" value={empRange}
+                        onChange={e => setEmpRange(e.target.value)} disabled={isLoading}>
+                        <option value="">Select range…</option>
+                        {EMP_RANGES.map(r => <option key={r} value={r}>{r} employees</option>)}
+                      </select>
+                      <span className="mrf-select-arrow">▾</span>
                     </div>
-                  )}
-
-                  {/* Live payload preview */}
-                  {showPreview && (
-                    <div className="lf-payload-preview">
-                      <div className="lf-payload-topbar">
-                        <div className="lf-payload-dots">
-                          <span className="pd t-red"/>
-                          <span className="pd t-yellow"/>
-                          <span className="pd t-green"/>
-                        </div>
-                        <span className="lf-payload-label">POST payload preview</span>
-                        <span className="lf-payload-method">application/json</span>
-                      </div>
-                      <pre className="lf-payload-code">
-{JSON.stringify({
-  ICP:      icpTags.length ? icpStr : '…',
-  Location: locTags.length ? locStr : '…',
-}, null, 2)}
-                      </pre>
+                    <div className="mrf-chips" style={{marginTop:'0.4rem'}}>
+                      {EMP_RANGES.map(r => (
+                        <button type="button" key={r}
+                          className={`mrf-chip ${empRange === r ? 'active' : ''}`}
+                          onClick={() => setEmpRange(empRange === r ? '' : r)}
+                          disabled={isLoading}>
+                          {r}
+                        </button>
+                      ))}
                     </div>
-                  )}
+                  </div>
 
-                  {/* Submit */}
-                  <button
-                    type="submit"
-                    className={`lf-submit-btn ${status === 'loading' ? 'lf-btn-loading' : ''}`}
-                    disabled={!canSubmit}
-                  >
-                    {status === 'loading' ? (
-                      <><span className="lf-spinner" />Sending to Pipeline…</>
-                    ) : (
-                      <>
-                        <span className="lf-btn-play">▶</span>
-                        Start Lead Generation
-                        <span className="lf-btn-arrow">→</span>
-                      </>
-                    )}
-                  </button>
+                  {/* Revenue Range */}
+                  <div className="mrf-field">
+                    <label className="mrf-label">
+                      Estimated Annual Revenue <span className="mrf-optional">optional</span>
+                    </label>
+                    <div className="mrf-select-wrap">
+                      <select className="mrf-select" value={revRange}
+                        onChange={e => setRevRange(e.target.value)} disabled={isLoading}>
+                        <option value="">Select range…</option>
+                        {REV_RANGES.map(r => <option key={r} value={r}>{r}</option>)}
+                      </select>
+                      <span className="mrf-select-arrow">▾</span>
+                    </div>
+                    <div className="mrf-chips" style={{marginTop:'0.4rem'}}>
+                      {REV_RANGES.map(r => (
+                        <button type="button" key={r}
+                          className={`mrf-chip ${revRange === r ? 'active' : ''}`}
+                          onClick={() => setRevRange(revRange === r ? '' : r)}
+                          disabled={isLoading}>
+                          {r}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
 
-                  <p className="lf-form-note">
-                    Sends a POST request to the n8n automation webhook. Both fields are required.
-                  </p>
-                </form>
-              </>
-            )}
+              {/* ════ SECTION 4 — Filters & Output ════ */}
+              <div className="mrf-section">
+                <SectionHead num="04" title="Filters & Output" desc="Exclude unwanted results and set your desired lead count." />
 
-          </div>
-        </div>
-      </main>
+                <div className="mrf-row-2">
+                  {/* Exclusions */}
+                  <div className="mrf-field">
+                    <label className="mrf-label">
+                      Exclusion Filters <span className="mrf-optional">optional</span>
+                      <span className="mrf-hint">— comma or Enter</span>
+                    </label>
+                    <TagInput id="exclusions" tags={exclusions} setTags={setExclusions}
+                      pool={EXCLUSION_POOL} quickList={null}
+                      placeholder="dealers, retailers, etc."
+                      disabled={isLoading} />
+                  </div>
+
+                  {/* Lead Count */}
+                  <div className="mrf-field">
+                    <label className="mrf-label" htmlFor="leadCount">
+                      Lead Count <span className="req-star">*</span>
+                    </label>
+                    <input id="leadCount" type="number" className="mrf-input mrf-input-number"
+                      value={leadCount} min="1" max="500"
+                      onChange={e => setLeadCount(e.target.value)}
+                      placeholder="eg. 20"
+                      disabled={isLoading} required />
+                    <div className="mrf-chips" style={{marginTop:'0.4rem'}}>
+                      {[10,20,50,100].map(n => (
+                        <button type="button" key={n}
+                          className={`mrf-chip ${Number(leadCount) === n ? 'active' : ''}`}
+                          onClick={() => setLeadCount(String(n))}
+                          disabled={isLoading}>
+                          {n} leads
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* ── Error ── */}
+              {status === 'error' && (
+                <div className="mrf-error">
+                  <span>⚠</span> {errorMsg}
+                </div>
+              )}
+
+              {/* ── Payload Preview ── */}
+              {showPreview && (
+                <div className="mrf-preview">
+                  <div className="mrf-preview-bar">
+                    <div className="mrf-preview-dots">
+                      <span className="pd red"/><span className="pd yellow"/><span className="pd green"/>
+                    </div>
+                    <span className="mrf-preview-label">POST payload preview</span>
+                    <span className="mrf-preview-badge">application/json</span>
+                  </div>
+                  <pre className="mrf-preview-code">{JSON.stringify(preview, null, 2)}</pre>
+                </div>
+              )}
+
+              {/* ── Submit ── */}
+              <button type="submit" className="mrf-submit" disabled={!canSubmit}>
+                {isLoading ? (
+                  <><span className="mrf-spinner" />Running Market Research Pipeline…</>
+                ) : (
+                  <>
+                    <span className="mrf-btn-play">▶</span>
+                    Start Market Research
+                    <span className="mrf-btn-arrow">→</span>
+                  </>
+                )}
+              </button>
+
+              <p className="mrf-note">
+                Fields marked <span className="req-star">*</span> are required. Data is sent via POST to the n8n automation pipeline.
+              </p>
+            </form>
+          )}
+        </main>
+      </div>
     </div>
   )
 }
